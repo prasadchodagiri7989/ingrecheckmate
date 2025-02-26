@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Camera, AlertTriangle } from "lucide-react";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 
 interface AnalysisProps {
   imageData: string;
@@ -27,24 +27,62 @@ const Analysis = ({
   const [analysis, setAnalysis] = useState<IngredientAnalysis[]>([]);
   const { toast } = useToast();
 
+  const parseGeminiResponse = (text: string): IngredientAnalysis[] => {
+    try {
+      // Split the response by new lines to separate ingredients
+      const lines = text.split('\n').filter(line => line.trim() !== '');
+      const ingredients: IngredientAnalysis[] = [];
+      
+      let currentIngredient: Partial<IngredientAnalysis> = {};
+      
+      for (const line of lines) {
+        if (line.includes(':')) {
+          // New ingredient found
+          if (currentIngredient.ingredient) {
+            ingredients.push(currentIngredient as IngredientAnalysis);
+            currentIngredient = {};
+          }
+          currentIngredient.ingredient = line.split(':')[0].trim();
+        } else if (line.toLowerCase().includes('harm scale')) {
+          // Extract harm scale (assuming format like "Harm Scale: 7/10")
+          const scale = line.match(/\d+/);
+          if (scale) {
+            currentIngredient.harmScale = parseInt(scale[0]);
+          }
+        } else if (line.toLowerCase().includes('disease') || line.toLowerCase().includes('health')) {
+          // Extract diseases
+          const diseases = line.split(':')[1]?.split(',').map(d => d.trim()) || [];
+          currentIngredient.diseases = diseases.filter(d => d !== '');
+        }
+      }
+      
+      // Add the last ingredient if exists
+      if (currentIngredient.ingredient) {
+        ingredients.push(currentIngredient as IngredientAnalysis);
+      }
+
+      return ingredients;
+    } catch (error) {
+      console.error('Error parsing Gemini response:', error);
+      return [];
+    }
+  };
+
   const analyzeImage = async () => {
     setIsAnalyzing(true);
     try {
-      // Initialize Gemini AI
-      const genAI = new GoogleGenerativeAI("YOUR_API_KEY"); // Replace with your API key
+      // Initialize Gemini AI with your API key
+      const genAI = new GoogleGenerativeAI("AIzaSyAFpYYEQZ4OVcLork2BZ1X0dG6PzXNhGQs"); // Replace with your actual API key
       const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
 
       // Convert base64 to binary
       const imageBase64 = imageData.split(",")[1];
-      const imageBinary = atob(imageBase64);
-      const bytes = new Uint8Array(imageBinary.length);
-      for (let i = 0; i < imageBinary.length; i++) {
-        bytes[i] = imageBinary.charCodeAt(i);
-      }
 
       // Analyze with Gemini
       const result = await model.generateContent([
-        "Analyze this food packaging image and list all ingredients. For each ingredient, provide a harm scale from 1-10 (10 being most harmful) and potential diseases associated with excessive consumption.",
+        {
+          text: "Analyze this food packaging image and list all ingredients. For each ingredient provide:\n1. Ingredient name followed by colon\n2. Harm Scale (1-10, 10 being most harmful)\n3. Potential diseases or health concerns associated with excessive consumption\n\nFormat each ingredient as:\nIngredient Name:\nHarm Scale: X/10\nPotential Health Concerns: disease1, disease2, etc."
+        },
         {
           inlineData: {
             mimeType: "image/jpeg",
@@ -55,24 +93,29 @@ const Analysis = ({
 
       const response = await result.response;
       const text = response.text();
+      console.log('Gemini Response:', text);
 
       // Parse the response and update state
-      // This is a simplified example - you'd need to properly parse the Gemini response
-      const mockAnalysis: IngredientAnalysis[] = [
-        {
-          ingredient: "Sample Ingredient",
-          harmScale: 5,
-          diseases: ["Sample Disease 1", "Sample Disease 2"],
-        },
-      ];
+      const parsedAnalysis = parseGeminiResponse(text);
+      
+      if (parsedAnalysis.length === 0) {
+        throw new Error("Could not parse ingredients from the image");
+      }
 
-      setAnalysis(mockAnalysis);
+      setAnalysis(parsedAnalysis);
+      toast({
+        title: "Analysis Complete",
+        description: `Found ${parsedAnalysis.length} ingredients in the image`,
+      });
+
     } catch (error) {
+      console.error('Analysis error:', error);
       toast({
         title: "Analysis Failed",
         description: "Could not analyze the image. Please try again.",
         variant: "destructive",
       });
+      setAnalysis([]);
     } finally {
       setIsAnalyzing(false);
     }
