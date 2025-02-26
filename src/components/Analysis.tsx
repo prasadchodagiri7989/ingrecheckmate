@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Loader2, Camera, AlertTriangle } from "lucide-react";
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface AnalysisProps {
   imageData: string;
@@ -71,32 +71,16 @@ const Analysis = ({
   const analyzeImage = async () => {
     setIsAnalyzing(true);
     try {
-      // Initialize Gemini AI with your API key
-      const genAI = new GoogleGenerativeAI("AIzaSyAFpYYEQZ4OVcLork2BZ1X0dG6PzXNhGQs"); // Replace with your actual API key
-      const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+      const { data, error } = await supabase.functions.invoke('analyze-image', {
+        body: { imageData }
+      });
 
-      // Convert base64 to binary
-      const imageBase64 = imageData.split(",")[1];
+      if (error) throw error;
 
-      // Analyze with Gemini
-      const result = await model.generateContent([
-        {
-          text: "Analyze this food packaging image and list all ingredients. For each ingredient provide:\n1. Ingredient name followed by colon\n2. Harm Scale (1-10, 10 being most harmful)\n3. Potential diseases or health concerns associated with excessive consumption\n\nFormat each ingredient as:\nIngredient Name:\nHarm Scale: X/10\nPotential Health Concerns: disease1, disease2, etc."
-        },
-        {
-          inlineData: {
-            mimeType: "image/jpeg",
-            data: imageBase64,
-          },
-        },
-      ]);
-
-      const response = await result.response;
-      const text = response.text();
-      console.log('Gemini Response:', text);
+      console.log('Gemini Response:', data.text);
 
       // Parse the response and update state
-      const parsedAnalysis = parseGeminiResponse(text);
+      const parsedAnalysis = parseGeminiResponse(data.text);
       
       if (parsedAnalysis.length === 0) {
         throw new Error("Could not parse ingredients from the image");
