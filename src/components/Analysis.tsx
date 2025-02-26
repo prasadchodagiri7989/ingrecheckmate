@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Loader2, Camera, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface AnalysisProps {
   imageData: string;
@@ -111,7 +119,7 @@ const Analysis = ({
 
   return (
     <div className="p-4 space-y-4">
-      <div className="relative">
+      <div className="relative w-full max-w-2xl mx-auto mb-6">
         <img
           src={imageData}
           alt="Captured food package"
@@ -134,42 +142,47 @@ const Analysis = ({
           <p className="text-sm text-gray-500">Analyzing ingredients...</p>
         </div>
       ) : (
-        <div className="space-y-4">
-          {analysis.map((item, index) => (
-            <div
-              key={index}
-              className="p-4 rounded-lg border border-gray-200 space-y-2"
-            >
-              <div className="flex items-center justify-between">
-                <h3 className="font-medium">{item.ingredient}</h3>
-                <div
-                  className={`px-2 py-1 rounded text-sm ${
-                    item.harmScale > 7
-                      ? "bg-red-100 text-red-800"
-                      : item.harmScale > 4
-                      ? "bg-yellow-100 text-yellow-800"
-                      : "bg-green-100 text-green-800"
-                  }`}
-                >
-                  Harm Scale: {item.harmScale}/10
-                </div>
-              </div>
-              
-              {item.diseases.length > 0 && (
-                <div className="space-y-1">
-                  <div className="flex items-center text-sm text-gray-500">
-                    <AlertTriangle className="w-4 h-4 mr-1" />
-                    Potential Health Concerns:
-                  </div>
-                  <ul className="text-sm text-gray-600 list-disc list-inside">
-                    {item.diseases.map((disease, idx) => (
-                      <li key={idx}>{disease}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          ))}
+        <div className="rounded-md border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Ingredient</TableHead>
+                <TableHead className="w-24 text-center">Harm Scale</TableHead>
+                <TableHead>Health Concerns</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {analysis.map((item, index) => (
+                <TableRow key={index}>
+                  <TableCell className="font-medium">{item.ingredient}</TableCell>
+                  <TableCell className="text-center">
+                    <span
+                      className={`inline-flex items-center justify-center px-2 py-1 rounded text-sm ${
+                        item.harmScale > 7
+                          ? "bg-red-100 text-red-800"
+                          : item.harmScale > 4
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-green-100 text-green-800"
+                      }`}
+                    >
+                      {item.harmScale}/10
+                    </span>
+                  </TableCell>
+                  <TableCell>
+                    {item.diseases.length > 0 ? (
+                      <ul className="list-disc list-inside text-sm text-gray-600">
+                        {item.diseases.map((disease, idx) => (
+                          <li key={idx}>{disease}</li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <span className="text-sm text-gray-400">No known concerns</span>
+                    )}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>
