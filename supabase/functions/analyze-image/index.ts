@@ -22,7 +22,8 @@ serve(async (req) => {
     }
 
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({ model: "gemini-pro-vision" });
+    // Using the new recommended model
+    const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
     // Get base64 data from the image string
     const imageBase64 = imageData.split(",")[1];
